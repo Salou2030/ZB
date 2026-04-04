@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lector de Matrículas IA</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0a0c10; --surface: #111318; --border: #1e2330;
+    --text: #e8eaf0; --muted: #4a5068;
+    --success: #00ff88; --err: #ff4455;
+    --col-pr: #a78bfa; --col-ocr: #00e5ff; --col-cl: #ff6b35;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Rajdhani', sans-serif; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px 56px;
+    background-image:
+      radial-gradient(ellipse at 10% 0%, rgba(167,139,250,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 100%, rgba(255,107,53,0.05) 0%, transparent 50%);
+  }
+
+  header { width: 100%; max-width: 600px; margin-bottom: 26px; text-align: center; }
+  .logo-line { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 6px; }
+  .logo-icon { width: 38px; height: 38px; background: linear-gradient(135deg, var(--col-pr), #6d28d9); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 0 22px rgba(167,139,250,0.35); }
+  h1 { font-size: 30px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
+  .subtitle { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+  .card { width: 100%; max-width: 600px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 14px; }
+  .card-header { padding: 13px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .step-badge { font-family: 'Space Mono', monospace; font-size: 10px; background: rgba(167,139,250,0.08); color: var(--col-pr); border: 1px solid rgba(167,139,250,0.2); border-radius: 4px; padding: 2px 8px; letter-spacing: 1px; flex-shrink: 0; }
+  .card-title { font-size: 14px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+
+  .engine-body { padding: 16px 20px; }
+  .engine-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .engine-tab { padding: 12px 10px; border-radius: 10px; cursor: pointer; border: 2px solid var(--border); background: #0d0f14; transition: all 0.2s; text-align: left; }
+  .engine-tab:hover { border-color: rgba(255,255,255,0.13); }
+  .engine-tab.active-pr  { border-color: var(--col-pr);  background: rgba(167,139,250,0.06); }
+  .engine-tab.active-ocr { border-color: var(--col-ocr); background: rgba(0,229,255,0.05); }
+  .engine-tab.active-cl  { border-color: var(--col-cl);  background: rgba(255,107,53,0.05); }
+  .engine-name { font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; color: var(--muted); }
+  .engine-tab.active-pr  .engine-name { color: var(--col-pr); }
+  .engine-tab.active-ocr .engine-name { color: var(--col-ocr); }
+  .engine-tab.active-cl  .engine-name { color: var(--col-cl); }
+  .engine-desc { font-size: 10px; color: var(--muted); line-height: 1.35; }
+  .engine-badge { display: inline-block; font-family: 'Space Mono', monospace; font-size: 8px; padding: 1px 5px; border-radius: 3px; margin-bottom: 4px; letter-spacing: 1px; }
+  .badge-free { background: rgba(0,255,136,0.1); color: var(--success); border: 1px solid rgba(0,255,136,0.25); }
+  .badge-paid { background: rgba(255,107,53,0.1); color: var(--col-cl); border: 1px solid rgba(255,107,53,0.25); }
+
+  .key-panel { display: none; }
+  .key-panel.visible { display: block; }
+  .apikey-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .apikey-input { flex: 1; background: #0d0f14; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text); outline: none; transition: border-color 0.2s; }
+  .apikey-input:focus { border-color: rgba(167,139,250,0.35); }
+  .apikey-input::placeholder { color: var(--muted); font-size: 11px; letter-spacing: 0; }
+  .btn-eye { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--muted); cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+  .btn-eye:hover { border-color: var(--col-pr); color: var(--col-pr); }
+  .apikey-hint { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .apikey-hint a { color: rgba(167,139,250,0.7); text-decoration: none; }
+  .apikey-hint a:hover { color: var(--col-pr); }
+  .key-status { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 3px; }
+  .key-status.ok  { background: rgba(0,255,136,0.1); color: var(--success); border: 1px solid rgba(0,255,136,0.25); }
+  .key-status.bad { background: rgba(255,68,85,0.1); color: var(--err); border: 1px solid rgba(255,68,85,0.25); }
+  .saved-tag { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 1px; margin-top: 6px; display: none; align-items: center; gap: 5px; }
+  .saved-tag.visible { display: flex; }
+  .saved-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+  .btn-clear-key { background: transparent; border: none; font-family: 'Space Mono', monospace; font-size: 9px; color: var(--err); cursor: pointer; letter-spacing: 1px; text-transform: uppercase; padding: 0; margin-left: auto; }
+  .btn-clear-key:hover { text-decoration: underline; }
+  .img-info { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted); margin-top: 10px; letter-spacing: 1px; text-transform: uppercase; display: none; }
+  .img-info.ok { color: var(--success); }
+
+  .camera-wrap { position: relative; width: 100%; aspect-ratio: 4/3; background: #070910; overflow: hidden; }
+  #videoEl    { width: 100%; height: 100%; object-fit: cover; display: none; }
+  #canvasEl   { display: none; }
+  #previewImg { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .camera-overlay { position: absolute; inset: 0; pointer-events: none; }
+  .bracket { position: absolute; width: 70px; height: 46px; }
+  .bracket.tl { top:18%; left:14%; border-top:2px solid var(--col-pr); border-left:2px solid var(--col-pr); opacity:.5; }
+  .bracket.tr { top:18%; right:14%; border-top:2px solid var(--col-pr); border-right:2px solid var(--col-pr); opacity:.5; }
+  .bracket.bl { bottom:18%; left:14%; border-bottom:2px solid var(--col-pr); border-left:2px solid var(--col-pr); opacity:.5; }
+  .bracket.br { bottom:18%; right:14%; border-bottom:2px solid var(--col-pr); border-right:2px solid var(--col-pr); opacity:.5; }
+  .scan-line { position: absolute; left:14%; right:14%; height:2px; background: linear-gradient(90deg, transparent, var(--col-pr), transparent); top:50%; opacity:0; animation: scanMove 2.8s ease-in-out infinite; }
+  @keyframes scanMove { 0%{top:20%;opacity:0} 10%{opacity:.6} 90%{opacity:.6} 100%{top:80%;opacity:0} }
+  .cam-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
+  .cam-placeholder svg { opacity: 0.3; }
+  .cam-placeholder span { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 1px; }
+
+  .cam-selector-wrap { padding: 0 20px 14px; display: none; }
+  .cam-selector-wrap.visible { display: block; }
+  .cam-selector-label { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .cam-selector { width: 100%; background: #0d0f14; border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text); outline: none; cursor: pointer; appearance: none; }
+  .cam-selector:focus { border-color: rgba(167,139,250,0.35); }
+
+  .controls { padding: 0 20px 14px; display: flex; gap: 10px; }
+  .btn { flex: 1; padding: 12px 14px; border: none; border-radius: 10px; font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-cam    { background: linear-gradient(135deg, var(--col-pr), #6d28d9); color: #fff; box-shadow: 0 4px 16px rgba(167,139,250,0.25); }
+  .btn-cam:hover:not(:disabled)    { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(167,139,250,0.4); }
+  .btn-shoot  { background: linear-gradient(135deg, #e84393, #aa1166); color: #fff; box-shadow: 0 4px 16px rgba(232,67,147,0.2); }
+  .btn-shoot:hover:not(:disabled)  { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(232,67,147,0.35); }
+  .btn-upload { background: transparent; color: var(--muted); border: 1px solid var(--border); flex: 0 0 auto; padding: 12px 14px; }
+  .btn-upload:hover:not(:disabled) { border-color: var(--col-pr); color: var(--col-pr); }
+  #fileInput { display: none; }
+
+  .result-body { padding: 18px 20px; }
+  .plate-display { width: 100%; background: #0d0f14; border: 1px solid var(--border); border-radius: 10px; padding: 22px 16px; text-align: center; margin-bottom: 14px; min-height: 86px; display: flex; align-items: center; justify-content: center; position: relative; transition: border-color 0.3s, box-shadow 0.3s; }
+  .plate-display.has-result { border-color: rgba(167,139,250,0.4); box-shadow: 0 0 28px rgba(167,139,250,0.08); }
+  #plateText { font-family: 'Space Mono', monospace; font-size: 34px; font-weight: 700; letter-spacing: 8px; color: var(--col-pr); text-transform: uppercase; text-shadow: 0 0 22px rgba(167,139,250,0.4); display: none; word-break: break-all; }
+  .plate-empty { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+  .plate-tag { position: absolute; top:8px; left:10px; font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+  .engine-used-tag { position: absolute; top:8px; right:10px; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px; text-transform:uppercase; }
+
+  .confidence-row { display:flex; align-items:center; gap:10px; padding:0 0 14px; }
+  .conf-label { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
+  .conf-bar-bg { flex:1; height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .conf-bar-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--col-cl),var(--col-pr)); border-radius:2px; transition:width 0.6s ease; }
+  .conf-value { font-family:'Space Mono',monospace; font-size:10px; color:var(--col-pr); flex-shrink:0; }
+
+  /* COPY ROW: botón + toggle auto en la misma línea */
+  .copy-row { display: flex; gap: 8px; align-items: stretch; }
+
+  .btn-copy { flex: 1; background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 13px; transition: all 0.2s; border-radius: 10px; font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+  .btn-copy:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-copy.active { border-color: rgba(0,255,136,0.35); color: var(--success); }
+  .btn-copy.active:hover { background: rgba(0,255,136,0.06); border-color: var(--success); }
+  .btn-copy.copied { background: rgba(0,255,136,0.1); border-color: var(--success); color: var(--success); }
+
+  /* TOGGLE AUTO */
+  .auto-toggle {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; padding: 10px 14px;
+    background: #0d0f14; border: 1px solid var(--border); border-radius: 10px;
+    cursor: pointer; transition: all 0.2s; flex-shrink: 0; min-width: 64px;
+    user-select: none;
+  }
+  .auto-toggle:hover { border-color: rgba(167,139,250,0.3); }
+  .auto-toggle.on { border-color: var(--col-pr); background: rgba(167,139,250,0.08); }
+  .auto-toggle-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .auto-toggle.on .auto-toggle-label { color: var(--col-pr); }
+
+  /* Switch visual */
+  .switch-track {
+    width: 36px; height: 18px; border-radius: 9px;
+    background: var(--border); position: relative; transition: background 0.2s;
+  }
+  .auto-toggle.on .switch-track { background: var(--col-pr); }
+  .switch-thumb {
+    position: absolute; top: 2px; left: 2px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--muted); transition: all 0.2s;
+  }
+  .auto-toggle.on .switch-thumb { left: 20px; background: #fff; }
+
+  /* URL SECTION */
+  .url-section { margin-top: 10px; }
+  .url-top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+  .url-label { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .tab-status { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+  .tab-status.open   { color: var(--success); }
+  .tab-status.closed { color: var(--muted); }
+
+  .url-row { display: flex; gap: 8px; align-items: center; }
+  .url-input { flex: 1; background: #0d0f14; border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text); outline: none; transition: border-color 0.2s; }
+  .url-input:focus { border-color: rgba(167,139,250,0.35); }
+  .url-input::placeholder { color: var(--muted); font-size: 10px; letter-spacing: 0; }
+
+  .btn-url-action { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; color: var(--muted); cursor: pointer; transition: all 0.2s; flex-shrink: 0; font-size: 13px; line-height: 1; font-family: 'Space Mono', monospace; white-space: nowrap; }
+  .btn-url-action.open-tab { border-color: rgba(167,139,250,0.35); color: var(--col-pr); }
+  .btn-url-action.open-tab:hover { background: rgba(167,139,250,0.08); }
+  .btn-url-action.clear { }
+  .btn-url-action.clear:hover { border-color: var(--err); color: var(--err); }
+
+  .url-hint { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted); margin-top: 5px; letter-spacing: 0.5px; }
+  .url-hint.active { color: rgba(167,139,250,0.6); }
+
+  .status-bar { width:100%; max-width:600px; padding:0 4px; margin-top:2px; min-height:24px; display:flex; align-items:center; gap:8px; }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; transition:background 0.3s; }
+  .status-dot.active { background:var(--col-pr); animation:pulse 1.2s ease-in-out infinite; }
+  .status-dot.ok     { background:var(--success); animation:none; }
+  .status-dot.err    { background:var(--err); animation:none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  #statusMsg { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-line">
+    <div class="logo-icon">🔍</div>
+    <h1>PlateReader</h1>
+  </div>
+  <p class="subtitle">Reconocimiento de matrículas — tres motores</p>
+</header>
+
+<!-- MOTOR -->
+<div class="card">
+  <div class="card-header">
+    <span class="step-badge">00</span>
+    <span class="card-title">Motor de reconocimiento</span>
+  </div>
+  <div class="engine-body">
+    <div class="engine-tabs">
+      <div class="engine-tab active-pr" id="tabPr" onclick="selectEngine('pr')">
+        <span class="engine-badge badge-free">GRATIS</span>
+        <div class="engine-name">Plate Rec.</div>
+        <div class="engine-desc">Especializado en matrículas. 2.500 req/mes gratis.</div>
+      </div>
+      <div class="engine-tab" id="tabOcr" onclick="selectEngine('ocr')">
+        <span class="engine-badge badge-free">GRATIS</span>
+        <div class="engine-name">OCR.Space</div>
+        <div class="engine-desc">OCR genérico. 25.000 req/mes. A veces caído.</div>
+      </div>
+      <div class="engine-tab" id="tabCl" onclick="selectEngine('cl')">
+        <span class="engine-badge badge-paid">DE PAGO</span>
+        <div class="engine-name">Claude AI</div>
+        <div class="engine-desc">IA de visión. Mayor precisión en condiciones difíciles.</div>
+      </div>
+    </div>
+
+    <div class="key-panel visible" id="panelPr">
+      <div class="apikey-row">
+        <input type="password" class="apikey-input" id="prKeyInput" placeholder="Token de Plate Recognizer">
+        <button class="btn-eye" onclick="toggleEye('prKeyInput',this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="apikey-hint">Token gratuito en <a href="https://app.platerecognizer.com/accounts/home/" target="_blank">app.platerecognizer.com</a> — 2.500 img/mes. <span class="key-status" id="prKeyStatus"></span></div>
+      <div class="saved-tag" id="prSavedTag"><span class="saved-dot"></span> KEY GUARDADA <button class="btn-clear-key" onclick="clearKey('pr')">Borrar</button></div>
+    </div>
+
+    <div class="key-panel" id="panelOcr">
+      <div class="apikey-row">
+        <input type="password" class="apikey-input" id="ocrKeyInput" placeholder="K8xxxxx  (key de OCR.Space)">
+        <button class="btn-eye" onclick="toggleEye('ocrKeyInput',this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="apikey-hint">Key gratuita en <a href="https://ocr.space/ocrapi/freekey" target="_blank">ocr.space/ocrapi/freekey</a> <span class="key-status" id="ocrKeyStatus"></span></div>
+      <div class="saved-tag" id="ocrSavedTag"><span class="saved-dot"></span> KEY GUARDADA <button class="btn-clear-key" onclick="clearKey('ocr')">Borrar</button></div>
+      <div class="img-info" id="imgSizeInfo"></div>
+    </div>
+
+    <div class="key-panel" id="panelCl">
+      <div class="apikey-row">
+        <input type="password" class="apikey-input" id="clKeyInput" placeholder="sk-ant-api03-...">
+        <button class="btn-eye" onclick="toggleEye('clKeyInput',this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="apikey-hint">Key en <a href="https://console.anthropic.com/keys" target="_blank">console.anthropic.com/keys</a> <span class="key-status" id="clKeyStatus"></span></div>
+      <div class="saved-tag" id="clSavedTag"><span class="saved-dot"></span> KEY GUARDADA <button class="btn-clear-key" onclick="clearKey('cl')">Borrar</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- CÁMARA -->
+<div class="card">
+  <div class="card-header">
+    <span class="step-badge">01</span>
+    <span class="card-title">Captura</span>
+  </div>
+  <div class="camera-wrap">
+    <video id="videoEl" autoplay playsinline muted></video>
+    <canvas id="canvasEl"></canvas>
+    <img id="previewImg" alt="preview">
+    <div class="camera-overlay">
+      <div class="bracket tl"></div><div class="bracket tr"></div>
+      <div class="bracket bl"></div><div class="bracket br"></div>
+      <div class="scan-line" id="scanLine"></div>
+    </div>
+    <div class="cam-placeholder" id="placeholder">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <rect x="2" y="7" width="20" height="15" rx="2"/><circle cx="12" cy="14" r="4"/><path d="M16 3l-4 4-4-4"/>
+      </svg>
+      <span>Activa la cámara o sube imagen</span>
+    </div>
+  </div>
+
+  <div class="cam-selector-wrap" id="camSelectorWrap">
+    <div class="cam-selector-label">Cámara seleccionada</div>
+    <select class="cam-selector" id="camSelector" onchange="switchCamera()"></select>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-cam" id="btnCam">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><circle cx="12" cy="14" r="4"/></svg>
+      Cámara
+    </button>
+    <button class="btn btn-shoot" id="btnShoot" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+      Capturar
+    </button>
+    <input type="file" id="fileInput" accept="image/*">
+    <button class="btn btn-upload" id="btnUpload" title="Subir imagen">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- RESULTADO -->
+<div class="card">
+  <div class="card-header">
+    <span class="step-badge">02</span>
+    <span class="card-title">Matrícula detectada</span>
+  </div>
+  <div class="result-body">
+
+    <div class="plate-display" id="plateDisplay">
+      <span class="plate-tag">RESULTADO</span>
+      <span class="engine-used-tag" id="engineUsedTag"></span>
+      <span class="plate-empty" id="plateEmpty">— EN ESPERA —</span>
+      <span id="plateText"></span>
+    </div>
+
+    <div class="confidence-row" id="confRow" style="display:none">
+      <span class="conf-label">Confianza</span>
+      <div class="conf-bar-bg"><div class="conf-bar-fill" id="confFill"></div></div>
+      <span class="conf-value" id="confVal">—</span>
+    </div>
+
+    <!-- BOTÓN COPIAR + TOGGLE AUTO -->
+    <div class="copy-row">
+      <button class="btn-copy" id="btnCopy" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+        </svg>
+        Copiar · Cambiar pestaña
+      </button>
+      <div class="auto-toggle" id="autoToggle" onclick="toggleAuto()">
+        <div class="switch-track"><div class="switch-thumb"></div></div>
+        <span class="auto-toggle-label">Auto</span>
+      </div>
+    </div>
+
+    <!-- URL + BOTÓN ABRIR PESTAÑA -->
+    <div class="url-section">
+      <div class="url-top-row">
+        <div class="url-label">URL de la segunda pestaña (opcional)</div>
+        <span class="tab-status closed" id="tabStatus">● PESTAÑA CERRADA</span>
+      </div>
+      <div class="url-row">
+        <input type="url" class="url-input" id="urlInput" placeholder="https://... (vacío = pestaña en blanco)">
+        <button class="btn-url-action open-tab" id="btnOpenTab" onclick="openOrFocusTab()">Abrir pestaña</button>
+        <button class="btn-url-action clear" onclick="clearUrl()" title="Borrar URL">✕</button>
+      </div>
+      <div class="url-hint" id="urlHint">Primero abre la pestaña — luego el botón Copiar cambiará a ella automáticamente</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="status-bar">
+  <div class="status-dot" id="statusDot"></div>
+  <span id="statusMsg">Selecciona motor e introduce tu API key</span>
+</div>
+
+<script>
+// ── ELEMENTOS ─────────────────────────────────────────────────────────────────
+const videoEl        = document.getElementById('videoEl');
+const canvasEl       = document.getElementById('canvasEl');
+const previewImg     = document.getElementById('previewImg');
+const placeholder    = document.getElementById('placeholder');
+const btnCam         = document.getElementById('btnCam');
+const btnShoot       = document.getElementById('btnShoot');
+const btnUpload      = document.getElementById('btnUpload');
+const fileInput      = document.getElementById('fileInput');
+const btnCopy        = document.getElementById('btnCopy');
+const plateDisplay   = document.getElementById('plateDisplay');
+const plateEmpty     = document.getElementById('plateEmpty');
+const plateText      = document.getElementById('plateText');
+const statusDot      = document.getElementById('statusDot');
+const statusMsg      = document.getElementById('statusMsg');
+const scanLine       = document.getElementById('scanLine');
+const engineUsedTag  = document.getElementById('engineUsedTag');
+const confRow        = document.getElementById('confRow');
+const confFill       = document.getElementById('confFill');
+const confVal        = document.getElementById('confVal');
+const imgSizeInfo    = document.getElementById('imgSizeInfo');
+const camSelector    = document.getElementById('camSelector');
+const camSelectorWrap= document.getElementById('camSelectorWrap');
+const urlInput       = document.getElementById('urlInput');
+const urlHint        = document.getElementById('urlHint');
+const tabStatus      = document.getElementById('tabStatus');
+const autoToggle     = document.getElementById('autoToggle');
+const btnOpenTab     = document.getElementById('btnOpenTab');
+
+let stream           = null;
+let cameraActive     = false;
+let currentEngine    = 'pr';
+let backCameras      = [];
+let selectedDeviceId = '';
+let autoMode         = false;
+
+// La pestaña secundaria — abierta explícitamente por el usuario
+// window.open con nombre fijo garantiza reutilización
+const TAB_NAME = 'plateReaderSecondTab';
+let secondTab  = null; // referencia a la ventana/pestaña abierta
+
+// ── LOCALSTORAGE ──────────────────────────────────────────────────────────────
+const LS = {
+  pr:    'pr_platereader_key',
+  ocr:   'pr_ocrspace_key',
+  cl:    'pr_claude_key',
+  url:   'pr_external_url',
+  camId: 'pr_preferred_camera_id',
+  auto:  'pr_auto_mode'
+};
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function loadAll() {
+  ['pr','ocr','cl'].forEach(e => {
+    const val = localStorage.getItem(LS[e]) || '';
+    if (val) { getInput(e).value = val; updateKeyStatus(e, val); }
+  });
+  const savedUrl = localStorage.getItem(LS.url) || '';
+  if (savedUrl) { urlInput.value = savedUrl; }
+  updateUrlHint();
+
+  // Restaurar modo auto
+  if (localStorage.getItem(LS.auto) === '1') {
+    autoMode = true;
+    autoToggle.classList.add('on');
+  }
+}
+
+// ── KEYS ──────────────────────────────────────────────────────────────────────
+function validateKey(engine, val) {
+  if (!val) return false;
+  if (engine === 'pr')  return val.length >= 10;
+  if (engine === 'ocr') return val.length >= 5;
+  if (engine === 'cl')  return val.startsWith('sk-ant-') && val.length > 30;
+  return false;
+}
+function updateKeyStatus(engine, value) {
+  const st = document.getElementById(engine + 'KeyStatus');
+  if (!value) { st.textContent = ''; st.className = 'key-status'; updateSavedTag(engine, false); return; }
+  if (validateKey(engine, value)) {
+    st.textContent = '✓ OK'; st.className = 'key-status ok';
+    updateSavedTag(engine, true);
+    setStatus('', 'Listo — activa la cámara o sube imagen');
+  } else {
+    st.textContent = '✗ INVÁLIDA'; st.className = 'key-status bad';
+    updateSavedTag(engine, false);
+  }
+}
+function saveKey(engine, value) {
+  if (value) localStorage.setItem(LS[engine], value);
+  else localStorage.removeItem(LS[engine]);
+  updateSavedTag(engine, !!value);
+}
+function clearKey(engine) {
+  getInput(engine).value = '';
+  localStorage.removeItem(LS[engine]);
+  updateSavedTag(engine, false);
+  const st = document.getElementById(engine + 'KeyStatus');
+  st.textContent = ''; st.className = 'key-status';
+  setStatus('', 'Key borrada');
+}
+function getInput(e) {
+  return document.getElementById(e === 'pr' ? 'prKeyInput' : e === 'ocr' ? 'ocrKeyInput' : 'clKeyInput');
+}
+function updateSavedTag(engine, saved) {
+  document.getElementById(engine + 'SavedTag').className = 'saved-tag' + (saved ? ' visible' : '');
+}
+['pr','ocr','cl'].forEach(e => {
+  getInput(e).addEventListener('input', function() {
+    const v = this.value.trim();
+    updateKeyStatus(e, v);
+    if (validateKey(e, v)) saveKey(e, v); else saveKey(e, '');
+  });
+});
+function toggleEye(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.innerHTML = inp.type === 'text'
+    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M10.94 6.08A6 6 0 0112 6c3.18 0 6 2.5 7.73 5-1.05 1.73-2.49 3.18-4.18 4.09"/><path d="M6.61 6.61A13.5 13.5 0 002 12c1.73 2.5 4.55 5 10 5a13 13 0 005.39-1.61"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+}
+
+// ── ENGINE SELECTOR ───────────────────────────────────────────────────────────
+function selectEngine(engine) {
+  currentEngine = engine;
+  ['pr','ocr','cl'].forEach(e => {
+    const cap = e.charAt(0).toUpperCase() + e.slice(1);
+    document.getElementById('tab' + cap).className = 'engine-tab' + (e === engine ? ' active-' + e : '');
+    document.getElementById('panel' + cap).className = 'key-panel' + (e === engine ? ' visible' : '');
+  });
+  setStatus('', { pr: 'Motor: Plate Recognizer', ocr: 'Motor: OCR.Space (puede estar caído)', cl: 'Motor: Claude AI' }[engine]);
+}
+
+function setStatus(state, msg) {
+  statusDot.className = 'status-dot ' + state;
+  statusMsg.textContent = msg;
+}
+
+// ── MODO AUTO ─────────────────────────────────────────────────────────────────
+function toggleAuto() {
+  autoMode = !autoMode;
+  autoToggle.className = 'auto-toggle' + (autoMode ? ' on' : '');
+  localStorage.setItem(LS.auto, autoMode ? '1' : '0');
+  updateUrlHint();
+}
+
+// ── GESTIÓN DE PESTAÑA ────────────────────────────────────────────────────────
+function isTabOpen() {
+  return secondTab && !secondTab.closed;
+}
+
+function updateTabStatus() {
+  if (isTabOpen()) {
+    tabStatus.textContent = '● PESTAÑA ABIERTA';
+    tabStatus.className = 'tab-status open';
+    btnOpenTab.textContent = 'Ir a pestaña';
+  } else {
+    tabStatus.textContent = '● PESTAÑA CERRADA';
+    tabStatus.className = 'tab-status closed';
+    btnOpenTab.textContent = 'Abrir pestaña';
+  }
+}
+
+function openOrFocusTab() {
+  const url = urlInput.value.trim() || 'about:blank';
+
+  if (isTabOpen()) {
+    // Pestaña ya abierta: navegar si hay URL nueva y dar foco
+    try {
+      if (urlInput.value.trim()) secondTab.location.href = urlInput.value.trim();
+      secondTab.focus();
+    } catch(e) {}
+  } else {
+    // Abrir nueva pestaña con nombre fijo
+    secondTab = window.open(url, TAB_NAME);
+    // Comprobar periódicamente si la cerraron
+    const checker = setInterval(() => {
+      if (!isTabOpen()) { clearInterval(checker); updateTabStatus(); }
+    }, 1000);
+  }
+  updateTabStatus();
+  updateUrlHint();
+}
+
+function switchToSecondTab() {
+  if (!isTabOpen()) return;
+  try { secondTab.focus(); } catch(e) {}
+}
+
+urlInput.addEventListener('input', function() {
+  const v = this.value.trim();
+  if (v) localStorage.setItem(LS.url, v);
+  else localStorage.removeItem(LS.url);
+  updateUrlHint();
+});
+
+function clearUrl() {
+  urlInput.value = '';
+  localStorage.removeItem(LS.url);
+  updateUrlHint();
+}
+
+function updateUrlHint() {
+  if (!isTabOpen()) {
+    urlHint.textContent = 'Primero abre la pestaña — luego el botón Copiar cambiará a ella automáticamente';
+    urlHint.className = 'url-hint';
+    return;
+  }
+  const hasUrl = !!urlInput.value.trim();
+  if (autoMode) {
+    urlHint.textContent = hasUrl
+      ? 'Modo auto: copiará y cambiará a la pestaña en cuanto haya resultado'
+      : 'Modo auto: copiará y cambiará a la pestaña en cuanto haya resultado';
+    urlHint.className = 'url-hint active';
+  } else {
+    urlHint.textContent = 'Pulsa Copiar para copiar la matrícula y cambiar a la segunda pestaña';
+    urlHint.className = 'url-hint active';
+  }
+}
+
+// ── ACCIÓN COPIAR + CAMBIO DE PESTAÑA ─────────────────────────────────────────
+function doCopyAndSwitch() {
+  const plate = plateText.textContent.trim();
+  if (!plate) return;
+
+  // 1. Copiar al portapapeles
+  navigator.clipboard.writeText(plate).catch(() => {});
+
+  // 2. Cambiar a segunda pestaña si está abierta
+  switchToSecondTab();
+
+  // 3. Feedback visual en botón
+  btnCopy.classList.add('copied');
+  btnCopy.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> ¡Copiada!`;
+  setTimeout(() => {
+    btnCopy.classList.remove('copied');
+    btnCopy.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copiar · Cambiar pestaña`;
+  }, 2500);
+}
+
+btnCopy.addEventListener('click', doCopyAndSwitch);
+
+// ── CÁMARA ────────────────────────────────────────────────────────────────────
+async function getFirstTwoBackCameras() {
+  const tempStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  tempStream.getTracks().forEach(t => t.stop());
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const backCams = [];
+  for (const cam of devices.filter(d => d.kind === 'videoinput')) {
+    if (backCams.length >= 2) break;
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cam.deviceId } } });
+      const track = s.getVideoTracks()[0];
+      const settings = track.getSettings();
+      const cap = track.getCapabilities ? track.getCapabilities() : {};
+      s.getTracks().forEach(t => t.stop());
+      const label = cam.label.toLowerCase();
+      const isFront = settings.facingMode === 'user' || label.includes('front') || label.includes('frontal') || label.includes('selfie');
+      if (!isFront) backCams.push({ deviceId: cam.deviceId, label: cam.label || `Cámara ${backCams.length + 1}`, maxWidth: cap.width ? cap.width.max : 0, rawLabel: label });
+    } catch(e) {}
+  }
+  return backCams;
+}
+
+function pickBestCamera(cameras) {
+  if (cameras.length <= 1) return cameras[0] || null;
+  const savedId = localStorage.getItem(LS.camId);
+  if (savedId) { const s = cameras.find(c => c.deviceId === savedId); if (s) return s; }
+  return [...cameras].sort((a, b) => {
+    const score = c => { const l = c.rawLabel; if (l.includes('macro')||l.includes('depth')||l.includes('tele')||l.includes('portrait')) return -10; if (l.includes('main')||l.includes('wide')) return 5; return 0; };
+    return score(b) - score(a) || (b.maxWidth||0) - (a.maxWidth||0);
+  })[0];
+}
+
+function populateCamSelector(cameras, selectedId) {
+  camSelector.innerHTML = '';
+  cameras.forEach((cam, i) => {
+    const opt = document.createElement('option');
+    opt.value = cam.deviceId;
+    let name = cam.label || `Cámara ${i + 1}`;
+    if (name.length > 45) name = name.slice(0, 42) + '…';
+    opt.textContent = name;
+    if (cam.deviceId === selectedId) opt.selected = true;
+    camSelector.appendChild(opt);
+  });
+  camSelectorWrap.className = 'cam-selector-wrap' + (cameras.length > 1 ? ' visible' : '');
+}
+
+async function startCameraWithDevice(deviceId) {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const constraints = deviceId
+    ? { video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } }
+    : { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } } };
+  stream = await navigator.mediaDevices.getUserMedia(constraints);
+  videoEl.srcObject = stream; videoEl.style.display = 'block';
+  selectedDeviceId = deviceId;
+}
+
+async function switchCamera() {
+  const newId = camSelector.value;
+  if (newId === selectedDeviceId) return;
+  setStatus('active', 'Cambiando cámara...');
+  try {
+    await startCameraWithDevice(newId);
+    localStorage.setItem(LS.camId, newId);
+    setStatus('active', 'Encuadra la matrícula');
+  } catch(e) { setStatus('err', 'No se pudo cambiar de cámara'); }
+}
+
+btnCam.addEventListener('click', async () => {
+  if (cameraActive) { stopCamera(); return; }
+  setStatus('active', 'Detectando cámaras...');
+  try {
+    backCameras = await getFirstTwoBackCameras();
+    const mainCam = pickBestCamera(backCameras);
+    const targetId = mainCam ? mainCam.deviceId : '';
+    await startCameraWithDevice(targetId);
+    previewImg.style.display = 'none'; placeholder.style.display = 'none';
+    cameraActive = true; btnShoot.disabled = false;
+    populateCamSelector(backCameras, targetId);
+    btnCam.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cerrar`;
+    setStatus('active', backCameras.length > 1 ? `${backCameras.length} cámaras detectadas` : 'Encuadra la matrícula');
+  } catch(e) { setStatus('err', 'Sin acceso a cámara — usa el botón de subir imagen'); }
+});
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  videoEl.style.display = 'none'; cameraActive = false; btnShoot.disabled = true;
+  backCameras = []; camSelectorWrap.className = 'cam-selector-wrap';
+  btnCam.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><circle cx="12" cy="14" r="4"/></svg> Cámara`;
+}
+
+btnShoot.addEventListener('click', () => {
+  if (!cameraActive) return;
+  canvasEl.width = videoEl.videoWidth; canvasEl.height = videoEl.videoHeight;
+  canvasEl.getContext('2d').drawImage(videoEl, 0, 0);
+  const b64 = canvasEl.toDataURL('image/jpeg', 0.92).split(',')[1];
+  previewImg.src = 'data:image/jpeg;base64,' + b64; previewImg.style.display = 'block';
+  stopCamera(); placeholder.style.display = 'none';
+  analyzeImage(b64);
+});
+
+btnUpload.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const b64 = e.target.result.split(',')[1];
+    previewImg.src = e.target.result; previewImg.style.display = 'block';
+    videoEl.style.display = 'none'; placeholder.style.display = 'none';
+    analyzeImage(b64);
+  };
+  reader.readAsDataURL(file); fileInput.value = '';
+});
+
+// ── COMPRESIÓN 300KB ──────────────────────────────────────────────────────────
+function compressImage(b64, maxKB = 300, maxW = 1280) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      let q = 0.85, result = c.toDataURL('image/jpeg', q).split(',')[1];
+      while (result.length * 0.75 > maxKB * 1024 && q > 0.2) { q -= 0.07; result = c.toDataURL('image/jpeg', q).split(',')[1]; }
+      resolve({ b64: result, sizeKB: Math.round(result.length * 0.75 / 1024), w, h });
+    };
+    img.src = 'data:image/jpeg;base64,' + b64;
+  });
+}
+
+function extractPlate(rawText) {
+  if (!rawText) return null;
+  const text = rawText.replace(/[\r\n\t]+/g, ' ').toUpperCase();
+  const tokens = (text.match(/[A-Z0-9]+/g) || []).filter(t => t.length >= 2 && t.length <= 9);
+  if (!tokens.length) return null;
+  const full = tokens.find(t => t.length >= 6 && /[A-Z]/.test(t) && /[0-9]/.test(t));
+  if (full) return full;
+  let combined = '';
+  for (const t of tokens) { combined += t; if (combined.length >= 6 && /[A-Z]/.test(combined) && /[0-9]/.test(combined)) break; if (combined.length >= 10) break; }
+  return combined.length >= 4 ? combined.slice(0, 10) : null;
+}
+
+function reactivateCameraAfterSend() {
+  setTimeout(() => { if (!cameraActive) btnCam.click(); }, 400);
+}
+
+async function analyzeImage(b64) {
+  const map = { pr: analyzeWithPlateRecognizer, ocr: analyzeWithOCRSpace, cl: analyzeWithClaude };
+  await map[currentEngine](b64);
+}
+
+function prepareResult() {
+  setStatus('active', 'Procesando...');
+  scanLine.style.opacity = '1';
+  plateEmpty.style.display = 'block'; plateEmpty.textContent = '— ANALIZANDO —';
+  plateText.style.display = 'none'; confRow.style.display = 'none';
+  btnCopy.disabled = true; btnCopy.classList.remove('active','copied');
+  plateDisplay.classList.remove('has-result'); engineUsedTag.textContent = '';
+}
+
+function showResult(plate, confidence, label, color) {
+  scanLine.style.opacity = '0';
+  plateEmpty.style.display = 'none';
+  plateText.textContent = plate; plateText.style.display = 'block';
+  plateDisplay.classList.add('has-result');
+  engineUsedTag.textContent = label; engineUsedTag.style.color = color;
+  if (confidence !== null) {
+    const pct = Math.round(confidence * 100);
+    confRow.style.display = 'flex'; confFill.style.width = pct + '%'; confVal.textContent = pct + '%';
+  }
+  btnCopy.disabled = false; btnCopy.classList.add('active');
+  setStatus('ok', 'Matrícula detectada · ' + label);
+
+  // MODO AUTO: copiar y cambiar de pestaña automáticamente
+  if (autoMode) {
+    setTimeout(() => doCopyAndSwitch(), 300);
+  }
+}
+
+function showError(msg) {
+  scanLine.style.opacity = '0';
+  plateEmpty.style.display = 'block'; plateEmpty.textContent = '— ERROR —';
+  plateText.style.display = 'none';
+  setStatus('err', msg);
+}
+
+// ── MOTORES ───────────────────────────────────────────────────────────────────
+async function analyzeWithPlateRecognizer(b64) {
+  const key = document.getElementById('prKeyInput').value.trim();
+  if (!validateKey('pr', key)) { setStatus('err', 'Introduce tu token de Plate Recognizer primero'); return; }
+  prepareResult();
+  setStatus('active', 'Comprimiendo imagen...');
+  const compressed = await compressImage(b64, 300, 1280);
+  setStatus('active', `Enviando a Plate Recognizer (${compressed.sizeKB}KB)...`);
+  try {
+    const byteChars = atob(compressed.b64);
+    const byteArray = new Uint8Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+    const fd = new FormData();
+    fd.append('upload', blob, 'plate.jpg');
+    fd.append('regions', 'es');
+    const fetchPromise = fetch('https://api.platerecognizer.com/v1/plate-reader/', { method: 'POST', headers: { 'Authorization': 'Token ' + key }, body: fd });
+    reactivateCameraAfterSend();
+    const resp = await fetchPromise;
+    const data = await resp.json();
+    if (!resp.ok) { showError(resp.status === 403 ? 'Token inválido o sin créditos' : (data.detail || 'HTTP ' + resp.status)); return; }
+    if (!data.results || data.results.length === 0) { showError('No se detectó matrícula en la imagen'); return; }
+    const best = data.results[0];
+    showResult(best.plate.toUpperCase(), best.score || null, 'PLATE REC.', 'var(--col-pr)');
+  } catch(err) { showError('Error de red — comprueba tu conexión'); }
+}
+
+async function analyzeWithOCRSpace(b64) {
+  const key = document.getElementById('ocrKeyInput').value.trim();
+  if (!validateKey('ocr', key)) { setStatus('err', 'Introduce tu key de OCR.Space primero'); return; }
+  prepareResult();
+  setStatus('active', 'Comprimiendo imagen...');
+  const compressed = await compressImage(b64, 300, 1280);
+  imgSizeInfo.style.display = 'block'; imgSizeInfo.className = 'img-info ok';
+  imgSizeInfo.textContent = `Imagen: ${compressed.sizeKB}KB · ${compressed.w}×${compressed.h}px`;
+  const doReq = async (engine) => {
+    const fd = new FormData();
+    fd.append('apikey', key); fd.append('base64Image', 'data:image/jpeg;base64,' + compressed.b64);
+    fd.append('language', 'eng'); fd.append('isOverlayRequired', 'false');
+    fd.append('OCREngine', String(engine)); fd.append('detectOrientation', 'true'); fd.append('scale', 'true');
+    return await (await fetch('https://api.ocr.space/parse/image', { method: 'POST', body: fd })).json();
+  };
+  try {
+    setStatus('active', `Enviando a OCR.Space (${compressed.sizeKB}KB)...`);
+    const reqPromise = doReq(2);
+    reactivateCameraAfterSend();
+    let data = await reqPromise;
+    if (data.IsErroredOnProcessing) {
+      const em = (data.ErrorMessage || []).join(' ');
+      if (em.includes('E101') || em.toLowerCase().includes('timed out')) { setStatus('active', 'Timeout — reintentando...'); data = await doReq(1); }
+    }
+    if (data.IsErroredOnProcessing) { showError('Servidor OCR.Space no disponible — usa otro motor'); return; }
+    const raw = (data.ParsedResults || []).map(r => r.ParsedText || '').join(' ').trim();
+    if (!raw) { showError('Sin texto — reintenta o usa Plate Recognizer'); return; }
+    const plate = extractPlate(raw);
+    if (!plate) { showError('Sin formato de matrícula reconocible'); return; }
+    showResult(plate, null, 'OCR.SPACE', 'var(--col-ocr)');
+  } catch(err) { showError('Error de red'); }
+}
+
+async function analyzeWithClaude(b64) {
+  const key = document.getElementById('clKeyInput').value.trim();
+  if (!validateKey('cl', key)) { setStatus('err', 'Introduce tu API key de Anthropic primero'); return; }
+  prepareResult();
+  setStatus('active', 'Comprimiendo imagen...');
+  const compressed = await compressImage(b64, 300, 1280);
+  setStatus('active', 'Analizando con Claude AI...');
+  try {
+    const fetchPromise = fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 120, messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: compressed.b64 } },
+        { type: 'text', text: 'Extrae la matrícula del vehículo. Responde SOLO con JSON sin markdown:\n{"plate":"MATRICULA_MAYUSCULAS_SIN_ESPACIOS","confidence":0.0,"found":true}\nSi no hay matrícula: {"plate":"","confidence":0,"found":false}' }
+      ]}]})
+    });
+    reactivateCameraAfterSend();
+    const resp = await fetchPromise;
+    const data = await resp.json();
+    if (data.error) { showError(data.error.type === 'authentication_error' ? 'API key incorrecta o sin créditos' : (data.error.message || 'Error')); return; }
+    const raw = data.content?.map(c => c.text || '').join('').trim();
+    let result;
+    try { result = JSON.parse(raw.replace(/```json|```/g, '').trim()); } catch { showError('Respuesta inesperada'); return; }
+    if (!result.found || !result.plate) { showError('No se detectó matrícula'); return; }
+    showResult(result.plate, result.confidence || null, 'CLAUDE AI', 'var(--col-cl)');
+  } catch(err) { showError('Error de red'); }
+}
+
+// ── ARRANQUE ──────────────────────────────────────────────────────────────────
+loadAll();
+updateTabStatus();
+</script>
+</body>
+</html>
