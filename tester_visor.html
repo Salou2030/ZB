@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tester — visor.html</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0a0c10; --surface: #111318; --border: #1e2330;
+    --text: #e8eaf0; --muted: #4a5068;
+    --ok: #00ff88; --err: #ff4455;
+    --pr: #a78bfa; --cl: #ff6b35;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 15px; }
+
+  /* ── LAYOUT ── */
+  .layout { display: flex; height: 100vh; gap: 0; }
+
+  /* Panel izquierdo */
+  .panel {
+    width: 360px; min-width: 300px; flex-shrink: 0;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+
+  .panel-title {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    letter-spacing: 2px; text-transform: uppercase; color: var(--pr);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title span { color: var(--muted); font-size: 9px; }
+
+  /* Secciones */
+  .section { border-bottom: 1px solid var(--border); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .section-label {
+    font-family: 'Space Mono', monospace; font-size: 9px;
+    letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+  }
+
+  /* Inputs */
+  input[type="text"], input[type="url"] {
+    width: 100%; background: #0a0c10; border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 10px; color: var(--text);
+    font-family: 'Space Mono', monospace; font-size: 11px;
+    outline: none; transition: border 0.2s;
+  }
+  input[type="text"]:focus, input[type="url"]:focus { border-color: var(--pr); }
+
+  /* Botones */
+  .btn {
+    padding: 9px 14px; border: none; border-radius: 7px; cursor: pointer;
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    letter-spacing: 1px; text-transform: uppercase; transition: all 0.15s;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--pr), #6d28d9); color: #fff; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary { background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.25); color: var(--pr); }
+  .btn-secondary:hover { background: rgba(167,139,250,0.15); }
+  .btn-danger { background: rgba(255,68,85,0.08); border: 1px solid rgba(255,68,85,0.3); color: var(--err); }
+  .btn-danger:hover { background: rgba(255,68,85,0.18); }
+  .btn-orange { background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.35); color: var(--cl); }
+  .btn-orange:hover { background: rgba(255,107,53,0.22); }
+  .btn-ok { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.3); color: var(--ok); }
+  .btn-ok:hover { background: rgba(0,255,136,0.18); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Toggle */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+  .toggle-label { font-size: 13px; color: var(--text); }
+  .toggle { position: relative; width: 40px; height: 22px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0; background: #1e2330; border-radius: 22px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .slider::before {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    left: 3px; top: 3px; background: var(--muted); border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle input:checked + .slider { background: rgba(255,107,53,0.3); }
+  .toggle input:checked + .slider::before { transform: translateX(18px); background: var(--cl); }
+
+  /* URLs rápidas */
+  .url-list { display: flex; flex-direction: column; gap: 6px; }
+  .url-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    background: #0a0c10; border: 1px solid var(--border); border-radius: 6px;
+    cursor: pointer; transition: border 0.15s;
+  }
+  .url-item:hover { border-color: var(--pr); }
+  .url-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green { background: var(--ok); }
+  .dot-red   { background: var(--err); }
+  .dot-gray  { background: var(--muted); }
+  .url-name  { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text); flex: 1; }
+  .url-note  { font-size: 10px; color: var(--muted); }
+
+  /* Log */
+  .log-box {
+    background: #0a0c10; border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px; height: 130px; overflow-y: auto;
+    font-family: 'Space Mono', monospace; font-size: 10px; line-height: 1.7;
+  }
+  .log-ok   { color: var(--ok); }
+  .log-err  { color: var(--err); }
+  .log-info { color: var(--pr); }
+  .log-warn { color: var(--cl); }
+
+  /* Estado localStorage */
+  .ls-grid { display: flex; flex-direction: column; gap: 6px; }
+  .ls-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ls-key { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); }
+  .ls-val { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--pr); background: rgba(167,139,250,0.07); border-radius: 4px; padding: 2px 7px; min-width: 80px; text-align: center; }
+  .ls-val.empty { color: var(--muted); font-style: italic; }
+
+  /* Panel derecho — preview */
+  .preview { flex: 1; display: flex; flex-direction: column; }
+  .preview-header {
+    height: 42px; background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; padding: 0 14px;
+    flex-shrink: 0;
+  }
+  .preview-label {
+    font-family: 'Space Mono', monospace; font-size: 9px;
+    letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+  }
+  .current-url {
+    font-family: 'Space Mono', monospace; font-size: 10px; color: var(--pr);
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .open-new { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted); cursor: pointer; text-decoration: underline; letter-spacing: 1px; background: none; border: none; }
+  .open-new:hover { color: var(--pr); }
+
+  #visorFrame {
+    flex: 1; border: none; display: block;
+    background: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- ═══ PANEL IZQUIERDO ═══ -->
+  <div class="panel">
+
+    <div class="panel-title">
+      🧪 Tester — visor.html
+      <span>iframe sandbox</span>
+    </div>
+
+    <!-- 1. URL MANUAL -->
+    <div class="section">
+      <div class="section-label">1 · URL a cargar en visor</div>
+      <input type="url" id="inputUrl" placeholder="https://ejemplo.com" value="https://example.com">
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="loadVisor()">▶ Abrir en visor</button>
+        <button class="btn btn-secondary" onclick="loadInFrame()">⬡ Probar iframe directo</button>
+      </div>
+    </div>
+
+    <!-- 2. URLs RÁPIDAS DE PRUEBA -->
+    <div class="section">
+      <div class="section-label">2 · URLs de prueba rápida</div>
+      <div class="url-list">
+        <div class="url-item" onclick="setUrl('https://example.com')">
+          <span class="url-dot dot-green"></span>
+          <span class="url-name">example.com</span>
+          <span class="url-note">✓ embebible</span>
+        </div>
+        <div class="url-item" onclick="setUrl('https://wikipedia.org')">
+          <span class="url-dot dot-green"></span>
+          <span class="url-name">wikipedia.org</span>
+          <span class="url-note">✓ embebible</span>
+        </div>
+        <div class="url-item" onclick="setUrl('https://openstreetmap.org')">
+          <span class="url-dot dot-green"></span>
+          <span class="url-name">openstreetmap.org</span>
+          <span class="url-note">✓ embebible</span>
+        </div>
+        <div class="url-item" onclick="setUrl('https://google.com')">
+          <span class="url-dot dot-red"></span>
+          <span class="url-name">google.com</span>
+          <span class="url-note">✗ bloqueado</span>
+        </div>
+        <div class="url-item" onclick="setUrl('https://youtube.com')">
+          <span class="url-dot dot-red"></span>
+          <span class="url-name">youtube.com</span>
+          <span class="url-note">✗ bloqueado</span>
+        </div>
+        <div class="url-item" onclick="setUrl('https://www.bing.com')">
+          <span class="url-dot dot-red"></span>
+          <span class="url-name">bing.com</span>
+          <span class="url-note">✗ bloqueado</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. MATRÍCULA (localStorage) -->
+    <div class="section">
+      <div class="section-label">3 · Matrícula (pr_last_plate)</div>
+      <input type="text" id="inputPlate" placeholder="ej. 1234 ABC" maxlength="10">
+      <div class="btn-row">
+        <button class="btn btn-ok" onclick="setPlate()">Escribir en localStorage</button>
+        <button class="btn btn-danger" onclick="clearPlate()">Limpiar</button>
+      </div>
+    </div>
+
+    <!-- 4. TURBO -->
+    <div class="section">
+      <div class="section-label">4 · Modo turbo (pr_turbo_active)</div>
+      <div class="toggle-row">
+        <span class="toggle-label">Activar turbo al abrir visor</span>
+        <label class="toggle">
+          <input type="checkbox" id="turboToggle" onchange="setTurbo(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-orange" onclick="forceTurboOn()">Forzar ON ahora</button>
+        <button class="btn btn-danger"  onclick="forceTurboOff()">Forzar OFF</button>
+      </div>
+    </div>
+
+    <!-- 5. ESTADO localStorage EN TIEMPO REAL -->
+    <div class="section">
+      <div class="section-label">5 · Estado localStorage (live)</div>
+      <div class="ls-grid">
+        <div class="ls-row">
+          <span class="ls-key">pr_external_url</span>
+          <span class="ls-val" id="ls_url">—</span>
+        </div>
+        <div class="ls-row">
+          <span class="ls-key">pr_last_plate</span>
+          <span class="ls-val" id="ls_plate">—</span>
+        </div>
+        <div class="ls-row">
+          <span class="ls-key">pr_turbo_active</span>
+          <span class="ls-val" id="ls_turbo">—</span>
+        </div>
+      </div>
+      <button class="btn btn-danger" onclick="clearAll()">Limpiar todo el localStorage</button>
+    </div>
+
+    <!-- 6. LOG -->
+    <div class="section">
+      <div class="section-label">6 · Log de eventos</div>
+      <div class="log-box" id="logBox"></div>
+      <button class="btn btn-secondary" onclick="clearLog()">Limpiar log</button>
+    </div>
+
+  </div><!-- /panel -->
+
+  <!-- ═══ PANEL DERECHO — PREVIEW ═══ -->
+  <div class="preview">
+    <div class="preview-header">
+      <span class="preview-label">Preview</span>
+      <span class="current-url" id="currentUrlLabel">—</span>
+      <button class="open-new" onclick="openInTab()">↗ nueva pestaña</button>
+    </div>
+    <iframe id="visorFrame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"></iframe>
+  </div>
+
+</div><!-- /layout -->
+
+<script>
+const visorPath = 'visor.html'; // ajusta si está en otra ruta
+
+const urlInput    = document.getElementById('inputUrl');
+const plateInput  = document.getElementById('inputPlate');
+const turboCheck  = document.getElementById('turboToggle');
+const visorFrame  = document.getElementById('visorFrame');
+const logBox      = document.getElementById('logBox');
+const urlLabel    = document.getElementById('currentUrlLabel');
+
+// ── LOG ────────────────────────────────────────────────────────────────────────
+function log(msg, type = 'info') {
+  const d = new Date();
+  const t = d.toTimeString().slice(0,8);
+  const el = document.createElement('div');
+  el.className = 'log-' + type;
+  el.textContent = `[${t}] ${msg}`;
+  logBox.prepend(el);
+}
+function clearLog() { logBox.innerHTML = ''; }
+
+// ── ACTUALIZAR UI localStorage ─────────────────────────────────────────────────
+function refreshLS() {
+  const show = (id, key) => {
+    const el = document.getElementById(id);
+    const v = localStorage.getItem(key);
+    if (v) { el.textContent = v.length > 28 ? v.slice(0,26)+'…' : v; el.classList.remove('empty'); }
+    else    { el.textContent = '—'; el.classList.add('empty'); }
+  };
+  show('ls_url',   'pr_external_url');
+  show('ls_plate', 'pr_last_plate');
+  show('ls_turbo', 'pr_turbo_active');
+  turboCheck.checked = localStorage.getItem('pr_turbo_active') === '1';
+}
+setInterval(refreshLS, 800);
+refreshLS();
+
+// ── CARGAR VISOR ───────────────────────────────────────────────────────────────
+function loadVisor() {
+  const url = urlInput.value.trim();
+  if (!url) { log('Sin URL introducida', 'err'); return; }
+  localStorage.setItem('pr_external_url', url);
+  refreshLS();
+  const visorUrl = `${visorPath}?url=${encodeURIComponent(url)}`;
+  visorFrame.src = visorUrl;
+  urlLabel.textContent = visorUrl;
+  log(`Visor cargado → ${url}`, 'ok');
+}
+
+// ── PROBAR IFRAME DIRECTO (sin visor.html) ────────────────────────────────────
+function loadInFrame() {
+  const url = urlInput.value.trim();
+  if (!url) { log('Sin URL', 'err'); return; }
+  visorFrame.src = url;
+  urlLabel.textContent = url;
+  log(`Iframe directo → ${url}`, 'warn');
+}
+
+// ── URLS RÁPIDAS ───────────────────────────────────────────────────────────────
+function setUrl(url) {
+  urlInput.value = url;
+  log(`URL seleccionada: ${url}`, 'info');
+}
+
+// ── MATRÍCULA ─────────────────────────────────────────────────────────────────
+function setPlate() {
+  const plate = plateInput.value.trim().toUpperCase();
+  if (!plate) { log('Campo matrícula vacío', 'warn'); return; }
+  localStorage.setItem('pr_last_plate', plate);
+  refreshLS();
+  log(`Matrícula escrita: ${plate}`, 'ok');
+}
+function clearPlate() {
+  localStorage.removeItem('pr_last_plate');
+  plateInput.value = '';
+  refreshLS();
+  log('Matrícula eliminada', 'warn');
+}
+
+// ── TURBO ─────────────────────────────────────────────────────────────────────
+function setTurbo(val) {
+  localStorage.setItem('pr_turbo_active', val ? '1' : '0');
+  refreshLS();
+  log(`pr_turbo_active → ${val ? '1' : '0'}`, val ? 'warn' : 'info');
+}
+function forceTurboOn()  { turboCheck.checked = true;  setTurbo(true); }
+function forceTurboOff() { turboCheck.checked = false; setTurbo(false); }
+
+// ── LIMPIAR TODO ──────────────────────────────────────────────────────────────
+function clearAll() {
+  ['pr_external_url','pr_last_plate','pr_turbo_active'].forEach(k => localStorage.removeItem(k));
+  turboCheck.checked = false;
+  refreshLS();
+  log('localStorage limpiado', 'err');
+}
+
+// ── NUEVA PESTAÑA ─────────────────────────────────────────────────────────────
+function openInTab() {
+  const src = visorFrame.src;
+  if (src) window.open(src, '_blank');
+}
+
+// ── DETECTAR BLOQUEO EN IFRAME DIRECTO ───────────────────────────────────────
+visorFrame.addEventListener('load', () => {
+  const src = visorFrame.src;
+  if (src && src !== 'about:blank') log(`Frame cargado: ${src.slice(0,60)}`, 'ok');
+});
+visorFrame.addEventListener('error', () => {
+  log('Error al cargar el frame (posible bloqueo X-Frame-Options)', 'err');
+});
+
+// ── ESCUCHAR MENSAJES DEL VISOR ───────────────────────────────────────────────
+window.addEventListener('message', e => {
+  log(`postMessage recibido: ${JSON.stringify(e.data)}`, 'info');
+});
+
+log('Tester listo', 'ok');
+</script>
+</body>
+</html>
